@@ -1,59 +1,47 @@
-/*
- * fluro
- * Created by Yakka
- * https://theyakka.com
- *
- * Copyright (c) 2019 Yakka, LLC. All rights reserved.
- * See LICENSE for distribution and usage details.
- */
-
 import 'dart:async';
-
-import 'package:fluro/fluro.dart';
+import 'package:fluro_pro/fluro.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'app_route.dart';
 
 /// {@template fluro_router}
-/// Attach [FluroRouter] to [MaterialApp] by connecting [FluroRouter.generator] to [MaterialApp.onGenerateRoute].
+/// 通过将 [FluroRouter.generator] 连接到 [MaterialApp.onGenerateRoute]，将 [FluroRouter] 附加到 [MaterialApp]。
 ///
-/// Define routes with [FluroRouter.define], optionally specifying transition types and connecting string path params to
-/// your screen widget's constructor.
+/// 使用 [FluroRouter.define] 定义路由，您可以选择性地指定过渡类型，并将字符串路径参数连接到屏幕小部件的构造函数。
 ///
-/// Push new route paths with [FluroRouter.appRouter.navigateTo] or continue to use [Navigator.of(context).push] if you prefer.
+/// 使用 [FluroRouter.appRouter.navigateTo] 推送新的路由路径，或者如果您更愿意，可以继续使用 [Navigator.of(context).push]。
 /// {@endtemplate}
 class FluroRouter {
-  /// The static / singleton instance of [FluroRouter]
+  /// 静态/单例的 [FluroRouter] 实例
   ///
   /// {@macro fluro_router}
   static final appRouter = FluroRouter();
 
-  /// The tree structure that stores the defined routes
+  /// 存储已定义路由的树结构
   final _routeTree = RouteTree();
 
-  /// Generic handler for when a route has not been defined
+  /// 当没有定义的路由时的通用处理程序
   Handler? notFoundHandler;
 
-  /// Handler for unauthorized access
+  /// 未授权访问的处理程序
   Handler? notAuthorizedHandler;
 
-  /// Global middleware applied to all routes
-  final List<AuthMiddleware> globalMiddleware = [];
+  /// 应用于所有路由的全局中间件
+  final List<FluroProMiddleware> globalMiddleware = [];
 
-  /// The default transition duration to use throughout Fluro
+  /// Fluro 全局默认使用的过渡持续时间
   static const defaultTransitionDuration = Duration(milliseconds: 250);
 
-  /// Creates a [PageRoute] definition for the passed [RouteHandler]. You can optionally provide a default transition type.
+  /// 为传递的 [RouteHandler] 创建 [PageRoute] 定义。您可以选择提供默认的过渡类型。
   void define(
-      String routePath, {
-        required Handler handler,
-        TransitionType? transitionType,
-        Duration transitionDuration = defaultTransitionDuration,
-        RouteTransitionsBuilder? transitionBuilder,
-        bool? opaque,
-        List<AuthMiddleware> middleware = const [],
-      }) {
+    String routePath, {
+    required Handler handler,
+    TransitionType? transitionType,
+    Duration transitionDuration = defaultTransitionDuration,
+    RouteTransitionsBuilder? transitionBuilder,
+    bool? opaque,
+    List<FluroProMiddleware> middleware = const [],
+  }) {
     _routeTree.addRoute(
       AppRoute(
         routePath,
@@ -67,35 +55,34 @@ class FluroRouter {
     );
   }
 
-  /// Finds a defined [AppRoute] for the path value. If no [AppRoute] definition was found
-  /// then function will return null.
+  /// 为路径值查找已定义的 [AppRoute]。如果没有找到 [AppRoute] 定义，则该函数将返回 null。
   AppRouteMatch? match(String path) {
     return _routeTree.matchRoute(path);
   }
 
-  /// Similar to [Navigator.pop]
+  /// 类似于 [Navigator.pop]
   void pop<T>(BuildContext context, [T? result]) =>
       Navigator.of(context).pop(result);
 
-  /// Adds global middleware
-  void useMiddleware(AuthMiddleware middleware) {
+  /// 添加全局中间件
+  void useMiddleware(FluroProMiddleware middleware) {
     globalMiddleware.add(middleware);
   }
 
-  /// Similar to [Navigator.push] but with a few extra features.
+  /// 类似于 [Navigator.push] 但带有一些额外功能。
   Future navigateTo(
-      BuildContext context,
-      String path, {
-        bool replace = false,
-        bool clearStack = false,
-        bool maintainState = true,
-        bool rootNavigator = false,
-        TransitionType? transition,
-        Duration? transitionDuration,
-        RouteTransitionsBuilder? transitionBuilder,
-        RouteSettings? routeSettings,
-        bool? opaque,
-      }) async {
+    BuildContext context,
+    String path, {
+    bool replace = false,
+    bool clearStack = false,
+    bool maintainState = true,
+    bool rootNavigator = false,
+    TransitionType? transition,
+    Duration? transitionDuration,
+    RouteTransitionsBuilder? transitionBuilder,
+    RouteSettings? routeSettings,
+    bool? opaque,
+  }) async {
     RouteMatch routeMatch = matchRoute(
       context,
       path,
@@ -110,41 +97,41 @@ class FluroRouter {
     Route<dynamic>? route = routeMatch.route;
 
     if (routeMatch.matchType == RouteMatchType.nonVisual) {
-      return Future.value("Non visual route type.");
+      return Future.value("非可视路由类型。");
     } else {
       if (route == null && notFoundHandler != null) {
         route = _notFoundRoute(context, path, maintainState: maintainState);
       }
 
       if (route != null) {
-        // Execute global middleware
+        // 执行全局中间件
         for (var middleware in globalMiddleware) {
           bool canProceed = await middleware.authGuard(
             context,
             path,
             routeMatch.parameters,
           );
-          if (!canProceed&&context.mounted) {
-            // Handle unauthorized access
+          if (!canProceed && context.mounted) {
+            // 处理未授权访问
             return _handleUnauthorized(context);
           }
         }
 
-        // Execute route-specific middleware
-        if (routeMatch.appRoute != null&&context.mounted) {
+        // 执行特定路由的中间件
+        if (routeMatch.appRoute != null && context.mounted) {
           for (var middleware in routeMatch.appRoute!.middleware) {
             bool canProceed = await middleware.authGuard(
               context,
               path,
               routeMatch.parameters,
             );
-            if (!canProceed&&context.mounted) {
-              // Handle unauthorized access
+            if (!canProceed && context.mounted) {
+              // 处理未授权访问
               return _handleUnauthorized(context);
             }
           }
         }
-        if(!context.mounted) return;
+        if (!context.mounted) return;
         final navigator = Navigator.of(context, rootNavigator: rootNavigator);
         if (clearStack) {
           return navigator.pushAndRemoveUntil(route, (check) => false);
@@ -154,7 +141,7 @@ class FluroRouter {
               : navigator.push(route);
         }
       } else {
-        final error = "No registered route was found to handle '$path'.";
+        final error = "没有找到注册的路由来处理 '$path'。";
         debugPrint(error);
         return Future.error(RouteNotFoundException(error, path));
       }
@@ -162,14 +149,14 @@ class FluroRouter {
   }
 
   Route<Null> _notFoundRoute(
-      BuildContext context,
-      String path, {
-        bool? maintainState,
-      }) {
+    BuildContext context,
+    String path, {
+    bool? maintainState,
+  }) {
     creator(
-        RouteSettings? routeSettings,
-        Map<String, List<String>> parameters,
-        ) {
+      RouteSettings? routeSettings,
+      Map<String, List<String>> parameters,
+    ) {
       return MaterialPageRoute<Null>(
         settings: routeSettings,
         maintainState: maintainState ?? true,
@@ -185,7 +172,7 @@ class FluroRouter {
 
   Future _handleUnauthorized(BuildContext context) {
     if (notAuthorizedHandler != null) {
-      // Create a route using notAuthorizedHandler
+      // 使用 notAuthorizedHandler 创建一个路由
       Route<dynamic> notAuthorizedRoute = MaterialPageRoute<dynamic>(
         builder: (BuildContext context) {
           return notAuthorizedHandler!.handlerFunc(context, {}) ??
@@ -194,22 +181,22 @@ class FluroRouter {
       );
       return Navigator.of(context).push(notAuthorizedRoute);
     } else {
-      // Return an error or navigate to a default login page
-      return Future.error("Not authorized");
+      // 返回错误或导航到默认登录页面
+      return Future.error("未授权");
     }
   }
 
-  /// Attempt to match a route to the provided [path].
+  /// 尝试将路由与提供的 [path] 匹配。
   RouteMatch matchRoute(
-      BuildContext? buildContext,
-      String? path, {
-        RouteSettings? routeSettings,
-        TransitionType? transitionType,
-        Duration? transitionDuration,
-        RouteTransitionsBuilder? transitionsBuilder,
-        bool maintainState = true,
-        bool? opaque,
-      }) {
+    BuildContext? buildContext,
+    String? path, {
+    RouteSettings? routeSettings,
+    TransitionType? transitionType,
+    Duration? transitionDuration,
+    RouteTransitionsBuilder? transitionsBuilder,
+    bool maintainState = true,
+    bool? opaque,
+  }) {
     RouteSettings settingsToUse = routeSettings ?? RouteSettings(name: path);
 
     if (settingsToUse.name == null) {
@@ -233,7 +220,7 @@ class FluroRouter {
     if (route == null && notFoundHandler == null) {
       return RouteMatch(
         matchType: RouteMatchType.noMatch,
-        errorMessage: "No matching route was found",
+        errorMessage: "没有找到匹配的路由",
       );
     }
 
@@ -245,9 +232,9 @@ class FluroRouter {
     }
 
     creator(
-        RouteSettings? routeSettings,
-        Map<String, List<String>> parameters,
-        ) {
+      RouteSettings? routeSettings,
+      Map<String, List<String>> parameters,
+    ) {
       bool isNativeTransition = (transition == TransitionType.native ||
           transition == TransitionType.nativeModal);
 
@@ -266,7 +253,7 @@ class FluroRouter {
         return MaterialPageRoute<dynamic>(
           settings: routeSettings,
           fullscreenDialog:
-          transition == TransitionType.materialFullScreenDialog,
+              transition == TransitionType.materialFullScreenDialog,
           maintainState: maintainState,
           builder: (BuildContext context) {
             return handler.handlerFunc(context, parameters) ??
@@ -278,7 +265,7 @@ class FluroRouter {
         return CupertinoPageRoute<dynamic>(
           settings: routeSettings,
           fullscreenDialog:
-          transition == TransitionType.cupertinoFullScreenDialog,
+              transition == TransitionType.cupertinoFullScreenDialog,
           maintainState: maintainState,
           builder: (BuildContext context) {
             return handler.handlerFunc(context, parameters) ??
@@ -307,13 +294,13 @@ class FluroRouter {
           transitionDuration: transition == TransitionType.none
               ? Duration.zero
               : (transitionDuration ??
-              route?.transitionDuration ??
-              defaultTransitionDuration),
+                  route?.transitionDuration ??
+                  defaultTransitionDuration),
           reverseTransitionDuration: transition == TransitionType.none
               ? Duration.zero
               : (transitionDuration ??
-              route?.transitionDuration ??
-              defaultTransitionDuration),
+                  route?.transitionDuration ??
+                  defaultTransitionDuration),
           transitionsBuilder: transition == TransitionType.none
               ? (_, __, ___, child) => child
               : routeTransitionsBuilder!,
@@ -332,11 +319,11 @@ class FluroRouter {
   RouteTransitionsBuilder _standardTransitionsBuilder(
       TransitionType? transitionType) {
     return (
-        BuildContext context,
-        Animation<double> animation,
-        Animation<double> secondaryAnimation,
-        Widget child,
-        ) {
+      BuildContext context,
+      Animation<double> animation,
+      Animation<double> secondaryAnimation,
+      Widget child,
+    ) {
       if (transitionType == TransitionType.fadeIn) {
         return FadeTransition(opacity: animation, child: child);
       } else {
@@ -372,9 +359,8 @@ class FluroRouter {
     };
   }
 
-  /// Route generation method. This function can be used as a way to create routes on-the-fly
-  /// if any defined handler is found. It can also be used with the [MaterialApp.onGenerateRoute]
-  /// property as callback to create routes that can be used with the [Navigator] class.
+  /// 路由生成方法。此函数可用于在找到任何已定义的处理程序时动态创建路由。
+  /// 它也可以用作 [MaterialApp.onGenerateRoute] 属性的回调，以创建可以与 [Navigator] 类一起使用的路由。
   Route<dynamic>? generator(RouteSettings routeSettings) {
     RouteMatch match = matchRoute(
       null,
@@ -385,15 +371,15 @@ class FluroRouter {
     return match.route;
   }
 
-  /// Prints the route tree so you can analyze it.
+  /// 打印路由树以供分析。
   void printTree() {
     _routeTree.printTree();
   }
 }
 
 extension on RouteSettings {
-  // shim for 3.5.0 breaking change
-  // ignore: unused_element
+  // 3.5.0 破坏性更改的补丁
+  // 忽略: unused_element
   RouteSettings copyWithShim({String? name, Object? arguments}) {
     return RouteSettings(
       name: name ?? this.name,

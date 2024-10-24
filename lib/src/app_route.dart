@@ -1,51 +1,40 @@
-/*
- * fluro
- * Created by Yakka
- * https://theyakka.com
- *
- * Copyright (c) 2019 Yakka, LLC. All rights reserved.
- * See LICENSE for distribution and usage details.
- */
-
 import 'dart:async';
-
-import 'package:fluro/fluro.dart';
 import 'package:flutter/widgets.dart';
 
-/// The type of transition to use when pushing/popping a route.
+/// 路由切换时使用的过渡类型。
 ///
-/// [TransitionType.custom] must also provide a transition when used.
+/// 当使用[TransitionType.custom]时，也必须提供一个过渡效果。
 enum TransitionType {
-  native,
-  nativeModal,
-  inFromLeft,
-  inFromTop,
-  inFromRight,
-  inFromBottom,
-  fadeIn,
-  custom,
-  material,
-  materialFullScreenDialog,
-  cupertino,
-  cupertinoFullScreenDialog,
-  none,
+  native, // 原生过渡
+  nativeModal, // 原生模态过渡
+  inFromLeft, // 从左侧进入
+  inFromTop, // 从顶部进入
+  inFromRight, // 从右侧进入
+  inFromBottom, // 从底部进入
+  fadeIn, // 淡入效果
+  custom, // 自定义过渡
+  material, // Material风格过渡
+  materialFullScreenDialog, // Material风格全屏对话框过渡
+  cupertino, // Cupertino风格过渡
+  cupertinoFullScreenDialog, // Cupertino风格全屏对话框过渡
+  none, // 无过渡效果
 }
 
-/// A middleware function to be executed before route navigation.
-typedef AuthGuard = FutureOr<bool> Function(
+/// 在路由导航之前执行的身份验证中间件函数。
+typedef FluroProGuard = FutureOr<bool> Function(
     BuildContext context,
     String routeName,
     Map<String, List<String>> parameters,
     );
 
-/// Middleware class for route authentication.
-class AuthMiddleware {
-  final AuthGuard authGuard;
+/// 路由身份验证的中间件类。
+class FluroProMiddleware {
+  final FluroProGuard authGuard;
 
-  AuthMiddleware({required this.authGuard});
+  FluroProMiddleware({required this.authGuard});
 }
 
-/// A route that is added to the router tree.
+/// 添加到路由树中的路由。
 class AppRoute {
   AppRoute(
       this.route,
@@ -57,11 +46,11 @@ class AppRoute {
         this.middleware = const [],
       });
 
-  String route;
-  dynamic handler;
-  TransitionType? transitionType;
-  Duration? transitionDuration;
-  RouteTransitionsBuilder? transitionBuilder;
-  bool? opaque;
-  List<AuthMiddleware> middleware; // New field
+  String route; // 路由路径
+  dynamic handler; // 路由处理器
+  TransitionType? transitionType; // 过渡类型
+  Duration? transitionDuration; // 过渡持续时间
+  RouteTransitionsBuilder? transitionBuilder; // 过渡构建器
+  bool? opaque; // 是否不透明
+  List<FluroProMiddleware> middleware; // 中间件列表，用于身份验证等
 }

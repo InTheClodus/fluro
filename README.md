@@ -35,8 +35,8 @@ Fluro 是一个 Flutter 的路由库，提供了简单灵活的路由管理方�
 dependencies:
   flutter:
     sdk: flutter
-  fluro:
-    path: packages/fluro # 请将此路径替换为您的实际路径
+  fluro_pro:
+    path: packages/fluro_pro # 请将此路径替换为您的实际路径
 ```
 
 然后在终端中运行：
@@ -103,7 +103,7 @@ void define(
   Duration transitionDuration = const Duration(milliseconds: 250),
   RouteTransitionsBuilder? transitionBuilder,
   bool? opaque,
-  List<AuthMiddleware> middleware = const [],
+  List<FluroProMiddleware> middleware = const [],
 })
 ```
 
@@ -134,10 +134,10 @@ router.define(
 
 ### 定义中间件
 
-中间件是 `AuthMiddleware` 的实例，需要提供一个 `authGuard` 函数，该函数返回一个 `FutureOr<bool>`，表示是否允许继续导航。
+中间件是 `FluroProMiddleware` 的实例，需要提供一个 `authGuard` 函数，该函数返回一个 `FutureOr<bool>`，表示是否允许继续导航。
 
 ```dart
-final authMiddleware = AuthMiddleware(
+final authMiddleware = FluroProMiddleware(
   authGuard: (BuildContext context, String routeName,
       Map<String, List<String>> parameters) async {
     // 在这里执行鉴权逻辑，例如检查用户是否已登录
@@ -255,7 +255,7 @@ router.useMiddleware(authMiddleware);
 #### 管理员权限中间件
 
 ```dart
-final adminMiddleware = AuthMiddleware(
+final adminMiddleware = FluroProMiddleware(
   authGuard: (BuildContext context, String routeName,
       Map<String, List<String>> parameters) async {
     // 检查用户是否具有管理员权限
