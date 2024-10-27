@@ -29,9 +29,9 @@ typedef FluroProGuard = FutureOr<bool> Function(
 
 /// 路由身份验证的中间件类。
 class FluroProMiddleware {
-  final FluroProGuard authGuard;
+  final FluroProGuard guard;
 
-  FluroProMiddleware({required this.authGuard});
+  FluroProMiddleware({required this.guard});
 }
 
 /// 添加到路由树中的路由。
@@ -44,6 +44,8 @@ class AppRoute {
         this.transitionBuilder,
         this.opaque,
         this.middleware = const [],
+        this.roleCheckMiddleware,
+        this.permissionCheckMiddleware,
       });
 
   String route; // 路由路径
@@ -53,4 +55,6 @@ class AppRoute {
   RouteTransitionsBuilder? transitionBuilder; // 过渡构建器
   bool? opaque; // 是否不透明
   List<FluroProMiddleware> middleware; // 中间件列表，用于身份验证等
+  FluroProGuard? roleCheckMiddleware;
+  FluroProGuard? permissionCheckMiddleware;
 }

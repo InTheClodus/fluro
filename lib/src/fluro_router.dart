@@ -31,6 +31,8 @@ class FluroRouter {
 
   /// Fluro 全局默认使用的过渡持续时间
   static const defaultTransitionDuration = Duration(milliseconds: 250);
+  FutureOr<List<String>> Function(BuildContext context)? defaultGetUserRoles;
+  FutureOr<List<String>> Function(BuildContext context)? defaultGetUserPermissions;
 
   /// 为传递的 [RouteHandler] 创建 [PageRoute] 定义。您可以选择提供默认的过渡类型。
   void define(
@@ -106,7 +108,7 @@ class FluroRouter {
       if (route != null) {
         // 执行全局中间件
         for (var middleware in globalMiddleware) {
-          bool canProceed = await middleware.authGuard(
+          bool canProceed = await middleware.guard(
             context,
             path,
             routeMatch.parameters,
@@ -120,7 +122,7 @@ class FluroRouter {
         // 执行特定路由的中间件
         if (routeMatch.appRoute != null && context.mounted) {
           for (var middleware in routeMatch.appRoute!.middleware) {
-            bool canProceed = await middleware.authGuard(
+            bool canProceed = await middleware.guard(
               context,
               path,
               routeMatch.parameters,
@@ -131,6 +133,56 @@ class FluroRouter {
             }
           }
         }
+
+        if (routeMatch.appRoute?.roleCheckMiddleware != null) {
+          bool hasRole = await routeMatch.appRoute!.roleCheckMiddleware!(
+            context,
+            path,
+            routeMatch.parameters,
+          );
+          if (!hasRole && context.mounted) {
+            return _handleUnauthorized(context);
+          }
+        }
+
+        // **Execute custom permission check middleware if provided**
+        if (routeMatch.appRoute?.permissionCheckMiddleware != null) {
+          bool hasPermission = await routeMatch.appRoute!.permissionCheckMiddleware!(
+            context,
+            path,
+            routeMatch.parameters,
+          );
+          if (!hasPermission && context.mounted) {
+            return _handleUnauthorized(context);
+          }
+        }
+
+        // **Execute global middleware**
+        for (var middleware in globalMiddleware) {
+          bool canProceed = await middleware.guard(
+            context,
+            path,
+            routeMatch.parameters,
+          );
+          if (!canProceed && context.mounted) {
+            return _handleUnauthorized(context);
+          }
+        }
+
+        // **Execute route-specific middleware**
+        if (routeMatch.appRoute != null && context.mounted) {
+          for (var middleware in routeMatch.appRoute!.middleware) {
+            bool canProceed = await middleware.guard(
+              context,
+              path,
+              routeMatch.parameters,
+            );
+            if (!canProceed && context.mounted) {
+              return _handleUnauthorized(context);
+            }
+          }
+        }
+
         if (!context.mounted) return;
         final navigator = Navigator.of(context, rootNavigator: rootNavigator);
         if (clearStack) {
@@ -141,7 +193,7 @@ class FluroRouter {
               : navigator.push(route);
         }
       } else {
-        final error = "没有找到注册的路由来处理 '$path'。";
+        final error = "No registered route was found to handle '$path'.";
         debugPrint(error);
         return Future.error(RouteNotFoundException(error, path));
       }
@@ -374,6 +426,29 @@ class FluroRouter {
   /// 打印路由树以供分析。
   void printTree() {
     _routeTree.printTree();
+  }
+  // Optional default role and permission check middleware
+  FluroProGuard defaultRoleCheckMiddleware(List<String> requiredRoles) {
+    return (context, routeName, parameters) async {
+      if (defaultGetUserRoles == null) return true; // Allow if no default function is provided
+      final userRoles = await defaultGetUserRoles!(context);
+      return hasRequiredRoles(requiredRoles, userRoles);
+    };
+  }
+
+  FluroProGuard defaultPermissionCheckMiddleware(List<String> requiredPermissions) {
+    return (context, routeName, parameters) async {
+      if (defaultGetUserPermissions == null) return true; // Allow if no default function is provided
+      final userPermissions = await defaultGetUserPermissions!(context);
+      return hasRequiredPermissions(requiredPermissions, userPermissions);
+    };
+  }
+  bool hasRequiredRoles(List<String> requiredRoles, List<String> userRoles) {
+    return requiredRoles.any((role) => userRoles.contains(role));
+  }
+
+  bool hasRequiredPermissions(List<String> requiredPermissions, List<String> userPermissions) {
+    return requiredPermissions.any((perm) => userPermissions.contains(perm));
   }
 }
 
